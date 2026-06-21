@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0F6E56" />
+<title>Pengambilan ATK — Biro Organisasi</title>
+<link rel="manifest" href="manifest.json" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:       #0F6E56;
+    --green-light: #E1F5EE;
+    --green-mid:   #1D9E75;
+    --green-dark:  #085041;
+    --amber-bg:    #FAEEDA;
+    --amber-text:  #633806;
+    --red-bg:      #FCEBEB;
+    --red-text:    #791F1F;
+    --bg:          #F4F6F5;
+    --surface:     #FFFFFF;
+    --border:      rgba(0,0,0,0.10);
+    --border-md:   rgba(0,0,0,0.18);
+    --text:        #1A1A1A;
+    --text-muted:  #6B7280;
+    --radius:      10px;
+    --radius-lg:   14px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Topbar */
+  .topbar {
+    background: var(--green);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  .topbar-icon { font-size: 22px; }
+  .topbar h1 { font-size: 15px; font-weight: 600; color: #fff; line-height: 1.2; }
+  .topbar p  { font-size: 11px; color: rgba(255,255,255,0.75); }
+  .sync-btn {
+    margin-left: auto;
+    background: rgba(255,255,255,0.15);
+    border: none;
+    border-radius: 20px;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+  .sync-btn:hover { background: rgba(255,255,255,0.25); }
+  .spin { display: inline-block; }
+  .spinning { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Connection status */
+  .conn-bar {
+    font-size: 11px;
+    padding: 5px 16px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: .3s;
+  }
+  .conn-bar.ok  { background: var(--green-light); color: var(--green-dark); }
+  .conn-bar.err { background: var(--red-bg);      color: var(--red-text); }
+  .conn-bar.checking { background: var(--amber-bg); color: var(--amber-text); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 0 16px;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px 0;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    color: var(--text-muted);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+  /* Content */
+  .content { flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .hidden { display: none !important; }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+  }
+  .card-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 12px;
+  }
+
+  /* Form */
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  label  { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+  input, select {
+    width: 100%;
+    padding: 9px 11px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--surface);
+    color: var(--text);
+  }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--green-mid);
+    box-shadow: 0 0 0 3px rgba(29,158,117,.12);
+  }
+
+  /* Chips */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--bg);
+    border: 0.5px solid var(--border-md);
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    margin: 2px;
+    cursor: pointer;
+    transition: .1s;
+    user-select: none;
+  }
+  .chip.on { background: var(--green-light); border-color: var(--green-mid); color: var(--green-dark); }
+
+  /* Qty row */
+  .qty-row { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+  .qty-row .nm { flex: 1; font-size: 13px; }
+  .qbtn {
+    width: 32px; height: 32px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius);
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .qinp { width: 52px !important; text-align: center; padding: 6px 4px; }
+  .delbtn {
+    width: 32px; height: 32px;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--red-bg);
+    color: var(--red-text);
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Summary box */
+  .summary {
+    background: var(--green-light);
+    border: 0.5px solid #5DCAA5;
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .summary .lbl { font-size: 11px; color: var(--green-dark); }
+  .summary .val { font-size: 17px; font-weight: 600; color: var(--green); }
+
+  /* Buttons */
+  .btn {
+    width: 100%; padding: 11px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: .15s;
+  }
+  .btn-primary { background: var(--green); color: #fff; }
+  .btn-primary:hover { background: var(--green-dark); }
+  .btn-primary:disabled { background: #9CA3AF; cursor: not-allowed; }
+  .btn-outline { background: #fff; color: var(--text); border: 0.5px solid var(--border-md); }
+  .btn-danger  { background: var(--red-bg); color: var(--red-text); border: 0.5px solid #F09595; }
+
+  /* Log item */
+  .log-item {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+  }
+  .log-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .log-name { font-size: 14px; font-weight: 600; }
+  .log-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .badges { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 500;
+  }
+  .badge-teal   { background: var(--green-light); color: var(--green-dark); }
+  .badge-amber  { background: var(--amber-bg);    color: var(--amber-text); }
+
+  /* Stats */
+  .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .stat { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 12px; text-align: center; }
+  .stat-val { font-size: 24px; font-weight: 700; color: var(--green); }
+  .stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* Bar */
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .bar-lbl { font-size: 12px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-track { flex: 2; height: 6px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+  .bar-fill  { height: 100%; background: var(--green-mid); border-radius: 4px; }
+  .bar-num   { font-size: 12px; font-weight: 600; color: var(--green); min-width: 24px; text-align: right; }
+
+  /* Empty */
+  .empty { text-align: center; padding: 32px 16px; color: var(--text-muted); font-size: 14px; }
+  .empty-icon { font-size: 36px; margin-bottom: 8px; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    padding: 10px 20px;
+    border-radius: 24px;
+    font-size: 13px; font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+    z-index: 100; opacity: 0; transition: opacity .2s;
+    pointer-events: none; white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+  }
+  .toast.show { opacity: 1; }
+
+  /* Divider */
+  hr { border: none; border-top: 0.5px solid var(--border); margin: 8px 0; }
+
+  .search-row { display: flex; gap: 6px; margin-bottom: 10px; }
+  .search-row input { flex: 1; }
+  .add-btn {
+    width: 40px; height: 40px;
+    border: 0.5px solid var(--border-md);
+    border-radius: var(--radius);
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 20px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* Config modal */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 50;
+  }
+  .modal {
+    background: var(--surface);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 20px 16px 32px;
+    width: 100%; max-width: 480px;
+  }
+  .modal h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .modal p  { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-icon">📋</span>
+    <div>
+      <h1>Pengambilan ATK</h1>
+      <p>Biro Organisasi</p>
+    </div>
+    <button class="sync-btn" onclick="syncData()" id="sync-btn">
+      <span class="spin" id="sync-icon">🔄</span> Sinkron
+    </button>
+  </div>
+
+  <!-- Connection bar -->
+  <div class="conn-bar checking" id="conn-bar">
+    <div class="dot"></div>
+    <span id="conn-text">Memeriksa koneksi ke Google Sheets...</span>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('form')">✏️ Ambil ATK</button>
+    <button class="tab" onclick="switchTab('log')">📋 Riwayat</button>
+    <button class="tab" onclick="switchTab('rekap')">📊 Rekap</button>
+  </div>
+
+  <!-- TAB: FORM -->
+  <div id="tab-form" class="content">
+    <div class="card">
+      <div class="card-title">Data Pengambil</div>
+      <div class="field">
+        <label>Nama Pegawai</label>
+        <input type="text" id="nama" placeholder="Masukkan nama lengkap" />
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Pilih Barang ATK</div>
+      <div class="search-row">
+        <input type="text" id="search-atk" placeholder="Cari atau ketik nama barang..." oninput="filterChips()" />
+        <button class="add-btn" onclick="addCustom()" title="Tambah barang">＋</button>
+      </div>
+      <div id="chips"></div>
+      <div id="selected-items"></div>
+    </div>
+
+    <button class="btn btn-primary" id="submit-btn" onclick="submitForm()">
+      ✅ Catat Pengambilan
+    </button>
+  </div>
+
+  <!-- TAB: LOG -->
+  <div id="tab-log" class="content hidden">
+    <div class="card" style="padding:12px">
+      <select id="filter-bulan" onchange="renderLog()">
+        <option value="">Semua Bulan</option>
+      </select>
+    </div>
+    <div id="log-list" style="display:flex;flex-direction:column;gap:8px"></div>
+  </div>
+
+  <!-- TAB: REKAP -->
+  <div id="tab-rekap" class="content hidden">
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-val" id="s-trx">0</div><div class="stat-lbl">Total Transaksi</div></div>
+      <div class="stat"><div class="stat-val" id="s-qty">0</div><div class="stat-lbl">Total Barang Keluar</div></div>
+      <div class="stat"><div class="stat-val" id="s-jenis">0</div><div class="stat-lbl">Jenis Barang</div></div>
+      <div class="stat"><div class="stat-val" id="s-bln">0</div><div class="stat-lbl">Transaksi Bulan Ini</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Barang Terbanyak Diambil</div>
+      <div id="top-items"></div>
+    </div>
+    <button class="btn btn-outline" onclick="exportCSV()">⬇️ Unduh Rekap CSV</button>
+    <button class="btn btn-danger"  onclick="clearLocal()" style="margin-top:4px">🗑️ Bersihkan Cache Lokal</button>
+    <div style="margin-top:8px;text-align:center">
+      <button style="background:none;border:none;font-size:12px;color:var(--text-muted);cursor:pointer;text-decoration:underline" onclick="showConfig()">⚙️ Ubah URL Google Sheets</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- Config Modal -->
+<div class="overlay hidden" id="config-overlay" onclick="hideConfig(event)">
+  <div class="modal">
+    <h2>⚙️ Konfigurasi Backend</h2>
+    <p>Masukkan URL Web App Google Apps Script Anda. Lihat panduan deploy untuk mendapatkan URL ini.</p>
+    <div class="field" style="margin-bottom:12px">
+      <label>URL Google Apps Script Web App</label>
+      <input type="url" id="cfg-url" placeholder="https://script.google.com/macros/s/..." />
+    </div>
+    <button class="btn btn-primary" onclick="saveConfig()">Simpan &amp; Tes Koneksi</button>
+    <button class="btn btn-outline" onclick="hideConfig()" style="margin-top:8px">Batal</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span id="toast-icon">✅</span>
+  <span id="toast-msg">OK</span>
+</div>
+
+<script>
+// ─── ATK master list ───────────────────────────────────────
+const ATK_DEFAULT = [
+  'Pulpen','Pensil','Spidol Boardmarker','Spidol Permanen','Stabilo / Highlighter',
+  'Penghapus','Tipe-X / Correction Pen','Penggaris','Gunting','Cutter / Pisau Kertas',
+  'Kertas A4 (rim)','Kertas F4 (rim)','Kertas HVS Warna','Post-it / Sticky Note',
+  'Amplop Coklat','Amplop Putih','Map Plastik','Map Kertas','Ordner / Binder',
+  'Klip Kertas','Staples (isi)','Stapler','Selotip / Lakban Bening','Lakban Coklat',
+  'Binder Clip','Lem Kertas','Buku Tulis','Buku Agenda',
+  'Tinta Printer Hitam','Tinta Printer Warna','Toner Printer',
+  'Flashdisk','Baterai AA','Baterai AAA','Kalkulator'
+];
+
+let atkList = [...ATK_DEFAULT];
+let sel     = {};
+let records = JSON.parse(localStorage.getItem('atk_records') || '[]');
+
+// ─── Config ────────────────────────────────────────────────
+function getApiUrl() { return localStorage.getItem('atk_api_url') || ''; }
+function setApiUrl(u) { localStorage.setItem('atk_api_url', u); }
+
+function showConfig() {
+  document.getElementById('cfg-url').value = getApiUrl();
+  document.getElementById('config-overlay').classList.remove('hidden');
+}
+function hideConfig(e) {
+  if (!e || e.target === document.getElementById('config-overlay'))
+    document.getElementById('config-overlay').classList.add('hidden');
+}
+async function saveConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  if (!url) { toast('Masukkan URL terlebih dahulu', 'err'); return; }
+  setApiUrl(url);
+  hideConfig();
+  await checkConnection();
+}
+
+// ─── Connection ─────────────────────────────────────────────
+async function checkConnection() {
+  const bar  = document.getElementById('conn-bar');
+  const text = document.getElementById('conn-text');
+  const url  = getApiUrl();
+
+  if (!url) {
+    bar.className  = 'conn-bar err';
+    text.textContent = 'URL backend belum diset — klik ⚙️ Ubah URL di tab Rekap';
+    return false;
+  }
+
+  bar.className  = 'conn-bar checking';
+  text.textContent = 'Memeriksa koneksi...';
+
+  try {
+    const r = await fetch(`${url}?action=ping`, { cache: 'no-store' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      bar.className  = 'conn-bar ok';
+      text.textContent = '✓ Terhubung ke Google Sheets';
+      return true;
+    }
+    throw new Error(d.message);
+  } catch(e) {
+    bar.className  = 'conn-bar err';
+    text.textContent = '✗ Gagal terhubung — periksa URL atau koneksi internet';
+    return false;
+  }
+}
+
+// ─── Sync from Google Sheets ────────────────────────────────
+async function syncData() {
+  const url = getApiUrl();
+  if (!url) { showConfig(); return; }
+
+  const icon = document.getElementById('sync-icon');
+  const btn  = document.getElementById('sync-btn');
+  icon.classList.add('spinning');
+  btn.disabled = true;
+
+  try {
+    const r = await fetch(`${url}?action=getAll`, { cache: 'no-store' });
+    const d = await r.json();
+    if (d.status !== 'ok') throw new Error(d.message);
+
+    records = d.records;
+    localStorage.setItem('atk_records', JSON.stringify(records));
+    populateBulan();
+    renderLog();
+    updateStats();
+    toast(`Sinkron berhasil — ${records.length} transaksi`);
+  } catch(e) {
+    toast('Gagal sinkron: ' + e.message, 'err');
+  } finally {
+    icon.classList.remove('spinning');
+    btn.disabled = false;
+  }
+}
+
+// ─── Submit ──────────────────────────────────────────────────
+async function submitForm() {
+  const nama  = document.getElementById('nama').value.trim();
+  const items = Object.entries(sel).filter(([,v]) => +v > 0);
+  if (!nama)         { toast('Masukkan nama pegawai!', 'err'); return; }
+  if (!items.length) { toast('Pilih minimal satu barang!', 'err'); return; }
+
+  const url = getApiUrl();
+  const now  = new Date();
+  const pad  = n => String(n).padStart(2,'0');
+  const record = {
+    id:      Date.now(),
+    nama,
+    tanggal: `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`,
+    jam:     `${pad(now.getHours())}:${pad(now.getMinutes())}`,
+    bulan:   `${now.getFullYear()}-${pad(now.getMonth()+1)}`,
+    items:   items.map(([n,q]) => ({ nama: n, qty: +q }))
+  };
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Menyimpan...';
+
+  // Simpan lokal dulu
+  records.unshift(record);
+  localStorage.setItem('atk_records', JSON.stringify(records));
+
+  // Kirim ke Google Sheets jika URL tersedia
+  if (url) {
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'add', record })
+      });
+      const d = await r.json();
+      if (d.status !== 'ok') throw new Error(d.message);
+      toast('Tersimpan di Google Sheets ✓');
+    } catch(e) {
+      toast('Tersimpan lokal (Google Sheets gagal: ' + e.message + ')', 'warn');
+    }
+  } else {
+    toast('Tersimpan lokal — belum ada koneksi backend');
+  }
+
+  // Reset form
+  sel = {};
+  document.getElementById('nama').value = '';
+  renderChips('');
+  renderSelectedItems();
+  populateBulan();
+  renderLog();
+  updateStats();
+
+  btn.disabled = false;
+  btn.innerHTML = '✅ Catat Pengambilan';
+}
+
+// ─── Chips ───────────────────────────────────────────────────
+function filterChips() { renderChips(document.getElementById('search-atk').value); }
+
+function renderChips(q) {
+  const c = document.getElementById('chips');
+  const list = atkList.filter(a => a.toLowerCase().includes(q.toLowerCase())).slice(0, 24);
+  c.innerHTML = list.map(a =>
+    `<span class="chip ${sel[a]!==undefined?'on':''}" onclick='toggleItem(${JSON.stringify(a)})'>
+      ${sel[a]!==undefined?'✓ ':'+ '}${a}
+    </span>`
+  ).join('');
+}
+
+function toggleItem(name) {
+  if (sel[name] !== undefined) delete sel[name];
+  else sel[name] = 1;
+  renderChips(document.getElementById('search-atk').value);
+  renderSelectedItems();
+}
+
+function addCustom() {
+  const v = document.getElementById('search-atk').value.trim();
+  if (!v) return;
+  if (!atkList.includes(v)) atkList.unshift(v);
+  sel[v] = 1;
+  document.getElementById('search-atk').value = '';
+  renderChips('');
+  renderSelectedItems();
+}
+
+function changeQty(name, d) {
+  sel[name] = Math.max(1, (+sel[name] || 1) + d);
+  renderSelectedItems();
+}
+
+function setQty(name, v) { sel[name] = Math.max(1, +v || 1); }
+
+function renderSelectedItems() {
+  const c    = document.getElementById('selected-items');
+  const keys = Object.keys(sel);
+  if (!keys.length) { c.innerHTML = ''; return; }
+
+  const totalQty = keys.reduce((s,k) => s + (+sel[k]||1), 0);
+
+  c.innerHTML = `<hr/>
+<div class="summary" style="margin-top:10px">
+  <div>
+    <div class="lbl">Akan diambil</div>
+    <div class="val">${totalQty} item · ${keys.length} jenis</div>
+  </div>
+  <span style="font-size:24px">📦</span>
+</div>` +
+    keys.map(k => `
+<div class="qty-row">
+  <span class="nm">${k}</span>
+  <button class="qbtn" onclick='changeQty(${JSON.stringify(k)},-1)'>−</button>
+  <input class="qinp" type="number" min="1" value="${+sel[k]||1}"
+    onchange='setQty(${JSON.stringify(k)},this.value);renderSelectedItems()' />
+  <button class="qbtn" onclick='changeQty(${JSON.stringify(k)},1)'>+</button>
+  <button class="delbtn" onclick='delete sel[${JSON.stringify(k)}];renderChips(document.getElementById("search-atk").value);renderSelectedItems()'>✕</button>
+</div>`).join('');
+}
+
+// ─── Log ─────────────────────────────────────────────────────
+function renderLog() {
+  const fb   = document.getElementById('filter-bulan').value;
+  const data = records.filter(r => !fb || r.bulan === fb);
+  const c    = document.getElementById('log-list');
+
+  if (!data.length) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">📭</div>Belum ada data. Tekan 🔄 Sinkron untuk memuat dari Google Sheets.</div>`;
+    return;
+  }
+  c.innerHTML = data.map(r => {
+    const total = r.items.reduce((s,i) => s + (+i.qty), 0);
+    return `<div class="log-item">
+      <div class="log-head">
+        <span class="log-name">${r.nama}</span>
+        <span class="badge badge-teal">📦 ${total} item</span>
+      </div>
+      <div class="log-meta">📅 ${r.tanggal} · ${r.jam}</div>
+      <div class="badges">
+        ${r.items.map(i => `<span class="badge badge-amber">${i.nama} ×${i.qty}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function populateBulan() {
+  const s   = document.getElementById('filter-bulan');
+  const cur = s.value;
+  const bulan = [...new Set(records.map(r => r.bulan))].sort().reverse();
+  s.innerHTML = '<option value="">Semua Bulan</option>' +
+    bulan.map(b => {
+      const [y,m] = b.split('-');
+      const lbl   = new Date(+y,+m-1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+      return `<option value="${b}" ${b===cur?'selected':''}>${lbl}</option>`;
+    }).join('');
+}
+
+// ─── Stats ───────────────────────────────────────────────────
+function updateStats() {
+  const now  = new Date();
+  const bIni = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  const items = {};
+  let totalQty = 0, bln = 0;
+
+  records.forEach(r => {
+    if (r.bulan === bIni) bln++;
+    r.items.forEach(i => {
+      items[i.nama] = (items[i.nama]||0) + (+i.qty);
+      totalQty += +i.qty;
+    });
+  });
+
+  document.getElementById('s-trx').textContent   = records.length;
+  document.getElementById('s-qty').textContent   = totalQty;
+  document.getElementById('s-jenis').textContent = Object.keys(items).length;
+  document.getElementById('s-bln').textContent   = bln;
+
+  const top = Object.entries(items).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const max = top[0] ? top[0][1] : 1;
+  document.getElementById('top-items').innerHTML = top.length
+    ? top.map(([n,q]) => `<div class="bar-row">
+        <span class="bar-lbl">${n}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round(q/max*100)}%"></div></div>
+        <span class="bar-num">${q}</span>
+      </div>`).join('')
+    : '<div class="empty" style="padding:12px">Belum ada data</div>';
+}
+
+// ─── Export CSV ──────────────────────────────────────────────
+function exportCSV() {
+  if (!records.length) { toast('Tidak ada data!', 'err'); return; }
+  const rows = [['No','Tanggal','Jam','Nama Pegawai','Nama Barang','Jumlah']];
+  let no = 1;
+  records.forEach(r => {
+    r.items.forEach((it, i) => {
+      rows.push([i===0?no:'', i===0?r.tanggal:'', i===0?r.jam:'', i===0?r.nama:'', it.nama, it.qty]);
+    });
+    no++;
+  });
+  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `Rekap_ATK_${now()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('File CSV berhasil diunduh!');
+}
+
+function now() {
+  const d = new Date();
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function clearLocal() {
+  if (!confirm('Hapus cache lokal? Data di Google Sheets tidak terhapus.')) return;
+  records = [];
+  localStorage.removeItem('atk_records');
+  renderLog(); updateStats(); populateBulan();
+  toast('Cache lokal dihapus.');
+}
+
+// ─── Toast ───────────────────────────────────────────────────
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  const icons = { ok:'✅', err:'❌', warn:'⚠️' };
+  document.getElementById('toast-icon').textContent = icons[type||'ok'];
+  document.getElementById('toast-msg').textContent  = msg;
+  t.style.background = type==='err' ? '#A32D2D' : type==='warn' ? '#854F0B' : '#0F6E56';
+  t.style.color      = '#fff';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ─── Tab switch ──────────────────────────────────────────────
+function switchTab(name) {
+  ['form','log','rekap'].forEach(t =>
+    document.getElementById('tab-'+t).classList.toggle('hidden', t!==name)
+  );
+  document.querySelectorAll('.tab').forEach((b,i) =>
+    b.classList.toggle('active', ['form','log','rekap'][i]===name)
+  );
+  if (name==='log')   { populateBulan(); renderLog(); }
+  if (name==='rekap') updateStats();
+}
+
+// ─── Init ────────────────────────────────────────────────────
+renderChips('');
+populateBulan();
+renderLog();
+updateStats();
+checkConnection();
+// Auto-sync saat pertama buka jika ada URL
+if (getApiUrl()) syncData();
+</script>
+</body>
+</html>
